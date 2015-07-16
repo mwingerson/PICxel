@@ -23,11 +23,13 @@ portClr(portOutputRegister(digitalPinToPort(pin)) + 1),
 pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
 	if(colorMode == GRB){
 		numberOfBytes = 3*num;
-		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+		uint8_t colorArray[numberOfBytes]; 
+		//colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
 	}
 	else{
 		numberOfBytes = 4*num;
-		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+		uint8_t colorArray[numberOfBytes]; 
+		//colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
 	}	
 }
 
