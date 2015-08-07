@@ -20,11 +20,17 @@
 #define BYTE uint8_t
 
 enum color_mode_t {GRB, HSV};
+enum memory_mode_t {alloc, noalloc};
 
 class PICxel{
 public:
 //PICxel constructor and destructor
 	PICxel(uint16_t num, uint8_t pin, color_mode_t color_mode);
+	PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode, memory_mode_t memory_mode);
+
+
+	void setArrayPointer(uint8_t* colorPtr);
+
 	~PICxel(void);
 
 //PICxel control functions

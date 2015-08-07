@@ -23,22 +23,56 @@ portClr(portOutputRegister(digitalPinToPort(pin)) + 1),
 pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
 	if(colorMode == GRB){
 		numberOfBytes = 3*num;
-		uint8_t colorArray[numberOfBytes]; 
-		//colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+		//uint8_t colorArray[3*num]; 		
+		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
 	}
 	else{
 		numberOfBytes = 4*num;
-		uint8_t colorArray[numberOfBytes]; 
-		//colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+		//uint8_t colorArray[4*num]; 
+		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+	}	
+
+	for(int i=0;i<numberOfBytes; i++)
+		colorArray[i] = 0;
+}
+
+PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode, memory_mode_t memory_mode) : 
+	numberOfLEDs(num), pin(pin), colorArray(NULL), 
+ 	portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
+	portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
+	pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
+	
+	if(colorMode == GRB && memory_mode == alloc){
+		numberOfBytes = 3*num;		
+		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+	}
+	else if(colorMode == HSV && memory_mode == alloc){
+		numberOfBytes = 4*num;
+		colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+	}	
+	else if(colorMode == GRB && memory_mode == noalloc){
+		numberOfBytes = 3*num;
+	}	
+	else{	//(colorMode == GRB && memory_mode == noalloc)
+		numberOfBytes = 4*num;
 	}	
 }
+
+
+void PICxel::setArrayPointer(uint8_t* colorPtr){
+	colorArray = colorPtr;
+}
+
+
+
+
+
+
 
 /************************************************************************/
 /*  Destructor for the PICxel class                                     */
 /************************************************************************/
 PICxel::~PICxel(){
-	if(colorArray)
-		free(colorArray);
 }
 
 /************************************************************************/
