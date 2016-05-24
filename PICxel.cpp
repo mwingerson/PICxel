@@ -474,8 +474,9 @@ void PICxel::HSVrefreshLEDs(void){
 	
 	//do not allow bitstream to be interrupted
 	noInterrupts();
+
 asm volatile(	
-"lw $s0, %4			\n\t"	//load address if color_ptr
+"lw $s0, %4			\n\t"	//load address of color_ptr
 
 //compute first color
 "j computeFirstColor	\n\t"
@@ -1167,8 +1168,8 @@ HSV_universal_delay_1	//preprocessor macro
 	"HSVassemblyEnd:		\n\t"
 	
 	:	//output
-	:	"r"(pinMask), "r"(numberOfLEDs), "m"(portClr), "m"(portSet), "m"(colorArray)//input
-	:	//clobber-list
+	:	"r"(pinMask), "r"(numberOfLEDs), "m"(portClr), "m"(portSet), "m"(colorArray) //input
+	:	"%s0" //clobber-list
 );
 	
 	//bitstream done, enable interrupts

@@ -59,12 +59,15 @@ public:
 	uint8_t* getColorArray(void);
 	uint8_t getBrightness(void);
 
-private:
+
 //pin control variables	
 	uint8_t pin;
 	volatile uint32_t *portSet;
 	volatile uint32_t *portClr;
 	uint32_t pinMask;
+
+
+private:
 
 //colorArray variables
 	color_mode_t colorMode;
