@@ -7,6 +7,7 @@
 /*  tested supported boards:                                            */
 /*    - Digilent UNO32                                                  */
 /*    - Digilent UC32                                                   */
+/*    - chipKIT Lenny (GRB mode only)                                   */
 /*                                                                      */
 /*  This library is protected under the GNU GPL v3.0 license            */
 /*  http://www.gnu.org/licenses/                                        */
@@ -15,6 +16,10 @@
 /*                          well as simplifying the main GRBrefreshLEDs()*/
 /*                          function.                                   */
 /*                          Tested on 40, 48, 80 and 200 MHz boards     */
+/* 09/02/2018 Matt Jenkins  Added support for changing number of LEDs   */
+/*                          on the fly and reallocating and freeing     */
+/*                          memory when needed.                         */
+/*                          Tested on 40MHz Lenny                       */
 /************************************************************************/
 
 #include "PICxel.h"
@@ -22,62 +27,86 @@
 /************************************************************************/
 /*  Construction for the PICxel class                                   */
 /************************************************************************/
-PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode) : numberOfLEDs(num), 
-pin(pin), colorArray(NULL), portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
-portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
-pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
-  if(colorMode == GRB){
-    numberOfBytes = 3*num;
-    //uint8_t colorArray[3*num];    
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  }
-  else{
-    numberOfBytes = 4*num;
-    //uint8_t colorArray[4*num]; 
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  } 
-
-  for(int i=0;i<numberOfBytes; i++)
-    colorArray[i] = 0;
+PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode) : 
+  pin(pin), 
+  portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
+  portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
+  pinMask(digitalPinToBitMask(pin)), 
+  colorMode(colorMode),
+  numberOfLEDs(num), 
+  brightness(255), 
+  colorArray(NULL),
+  memoryMode(alloc)
+{
+  setNumberOfLEDs(num);
 }
 
 PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode, memory_mode_t memory_mode) : 
-  numberOfLEDs(num), pin(pin), colorArray(NULL), 
+  pin(pin), 
   portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
   portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
-  pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
-  
-  if(colorMode == GRB && memory_mode == alloc){
-    numberOfBytes = 3*num;    
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  }
-  else if(colorMode == HSV && memory_mode == alloc){
-    numberOfBytes = 4*num;
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  } 
-  else if(colorMode == GRB && memory_mode == noalloc){
-    numberOfBytes = 3*num;
-  } 
-  else{ //(colorMode == GRB && memory_mode == noalloc)
-    numberOfBytes = 4*num;
-  } 
+  pinMask(digitalPinToBitMask(pin)), 
+  colorMode(colorMode),
+  numberOfLEDs(num), 
+  brightness(255), 
+  colorArray(NULL),
+  memoryMode(memory_mode)
+{
+
+  setNumberOfLEDs(num);
 }
 
 
+/************************************************************************/
+/*  Change the number of pixels and reallocate the new memory size      */
+/************************************************************************/
+
+bool PICxel::setNumberOfLEDs(uint16_t num) {
+  numberOfLEDs = num;
+
+  if(colorMode == GRB && memoryMode == alloc){
+    numberOfBytes = 3*num;
+    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+    if (colorArray == NULL) 
+      return false;
+  }
+  else if(colorMode == HSV && memoryMode == alloc){
+    numberOfBytes = 4*num;
+    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+    if (colorArray == NULL) 
+      return false;
+  }
+  else if(colorMode == GRB && memoryMode == noalloc){
+    numberOfBytes = 3*num;
+  }
+  else{ //(colorMode == GRB && memoryMode == noalloc)
+    numberOfBytes = 4*num;
+  }
+  return true;
+}
+
+/************************************************************************/
+/*  Change the static array, freeing an old calloc array if existing    */
+/* and change memory mode for future operations if applicable           */
+/************************************************************************/
 void PICxel::setArrayPointer(uint8_t* colorPtr){
+  if (memoryMode == alloc) {
+    if (colorArray != NULL) 
+      free(colorArray);
+    memoryMode = noalloc;
+  }
   colorArray = colorPtr;
 }
-
-
-
-
-
-
 
 /************************************************************************/
 /*  Destructor for the PICxel class                                     */
 /************************************************************************/
 PICxel::~PICxel(){
+  if (memoryMode == alloc) {
+    if (colorArray != NULL) {
+      free(colorArray);
+    }
+  }
 }
 
 /************************************************************************/

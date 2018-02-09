@@ -61,6 +61,7 @@ public:
 
 //get class variable functions
   uint16_t getNumberOfLEDs(void);
+  bool setNumberOfLEDs(uint16_t);
   uint8_t* getColorArray(void);
   uint8_t getBrightness(void);
 
@@ -80,6 +81,7 @@ private:
   uint16_t numberOfBytes;
   uint8_t brightness; 
   uint8_t *colorArray;
+  memory_mode_t memoryMode;
 
   
 };
