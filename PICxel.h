@@ -45,6 +45,7 @@ public:
   void HSVrefreshLEDs(void);
   
   void GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t blue);
+  void GRBsetLEDColor(uint16_t number, uint8_t pixelBrightness);
   void GRBsetLEDColor(uint16_t number, uint32_t color);
   
   void HSVsetLEDColor(uint16_t number, uint16_t hue, uint8_t sat, uint8_t val);
@@ -78,7 +79,7 @@ private:
   color_mode_t colorMode;
   uint16_t numberOfLEDs;
   uint16_t numberOfBytes;
-  uint8_t brightness; 
+  uint8_t globalBrightness; 
   uint8_t *colorArray;
 
   

@@ -22,18 +22,24 @@
 /************************************************************************/
 /*  Construction for the PICxel class                                   */
 /************************************************************************/
-PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode) : numberOfLEDs(num), 
-pin(pin), colorArray(NULL), portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
-portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
-pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
+PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode) : 
+    numberOfLEDs(num), 
+    pin(pin), 
+    colorArray(NULL), 
+    portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
+    portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
+    pinMask(digitalPinToBitMask(pin)), 
+    brightness(255), 
+    colorMode(colorMode)
+{
   if(colorMode == GRB){
     numberOfBytes = 3*num;
-    //uint8_t colorArray[3*num];    
+    //uint8_t colorArray[3*num];
     colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
   }
   else{
     numberOfBytes = 4*num;
-    //uint8_t colorArray[4*num]; 
+    //uint8_t colorArray[4*num];
     colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
   } 
 
@@ -126,19 +132,41 @@ void PICxel::clear(uint8_t num){
 /*  sets the class brightness                                           */
 /************************************************************************/
 void PICxel::setBrightness(uint8_t b){
-  brightness = b;
+  globalBrightness = b;
 }
 
 /************************************************************************/
 /*  Modifies the color matrix with the colors presented in 8-bit values */
 /*  for green, red and blue.  The values are then scaled by the         */
-/*  brightness value and placed into the location of number             */
+/*  globalBrightness value and placed into the location of number             */
 /************************************************************************/
 void PICxel::GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t blue){
   if(number < numberOfLEDs){
-    red = ((red*brightness) >> 8);
-    green = ((green*brightness) >> 8);
-    blue = ((blue*brightness) >> 8);
+    red = ((red*globalBrightness) >> 8);
+    green = ((green*globalBrightness) >> 8);
+    blue = ((blue*globalBrightness) >> 8);
+    
+    uint8_t *arrayPtr = &colorArray[number*3];
+    arrayPtr[0] = green;
+    arrayPtr[1] = red;
+    arrayPtr[2] = blue;
+  }
+}
+
+/************************************************************************/
+/*  Modifies the color matrix with the colors presented in 8-bit values */
+/*  for green, red and blue.  In addition, a per-pixel brightness value */
+/*  is included. The color values are then scaled by the                */
+/*  pixelBrightness as well as the global brightness before being       */
+/*  written into the array brightness value and placed into the         */
+/*  location of number                                                  */
+/************************************************************************/
+void PICxel::GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t blue, uint8_t pixelBrightness) {
+  if (number < numberOfLEDs)
+  {
+    red = ((red * globalBrightness * pixelBrightness) >> 16);
+    green = ((green * globalBrightness * pixelBrightness) >> 16);
+    blue = ((blue * globalBrightness * pixelBrightness) >> 16);
     
     uint8_t *arrayPtr = &colorArray[number*3];
     arrayPtr[0] = green;
@@ -154,7 +182,7 @@ void PICxel::GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t
 /*  bits[31 - 24][23 - 16][15 - 8][7 - 0]                               */
 /*      ( blank )(  red  )(green )(blue )                               */
 /*                                                                      */
-/*  Each color is scaled by the brightness value and stored in the      */
+/*  Each color is scaled by the globalBrightness value and stored in the      */
 /*  color array.                                                        */
 /************************************************************************/
 void PICxel::GRBsetLEDColor(uint16_t number, uint32_t color){
@@ -163,15 +191,43 @@ void PICxel::GRBsetLEDColor(uint16_t number, uint32_t color){
     uint32_t green = (uint8_t)(color >> 16);
     uint32_t blue  = (uint8_t)(color);
     
-    red   = (red   * brightness) >> 8;
-    green = (green * brightness) >> 8;
-    blue  = (blue  * brightness) >> 8;
+    red   = (red   * globalBrightness) >> 8;
+    green = (green * globalBrightness) >> 8;
+    blue  = (blue  * globalBrightness) >> 8;
     
     uint8_t *arrayPtr = &colorArray[number*3];
     arrayPtr[0] = green;
     arrayPtr[1] = red;
     arrayPtr[2] = blue; 
-  } 
+  }
+}
+
+/************************************************************************/
+/*  Modifies the color matrix with the colors presented one 32-bit      */
+/*  value. color is a 32-bit unsigned int that is organized into four   */
+/*  bytes:                                                              */
+/*  bits[31 - 24][23 - 16][15 - 8][7 - 0]                               */
+/*      ( blank )(  red  )(green )(blue )                               */
+/*                                                                      */
+/*  Each color is scaled by the globalBrightness value as well as the  */
+/*  pixelBrightness value and stored in the color array.                */
+/************************************************************************/
+void PICxel::GRBsetLEDColor(uint16_t number, uint32_t color, uint8_t pixelBrightness) {
+  if (number < numberOfLEDs)
+  {
+    uint32_t red   = (uint8_t)(color >> 8);
+    uint32_t green = (uint8_t)(color >> 16);
+    uint32_t blue  = (uint8_t)(color);
+    
+    red   = (red   * globalBrightness * pixelBrightness) >> 16;
+    green = (green * globalBrightness * pixelBrightness) >> 16;
+    blue  = (blue  * globalBrightness * pixelBrightness) >> 16;
+    
+    uint8_t *arrayPtr = &colorArray[number*3];
+    arrayPtr[0] = green;
+    arrayPtr[1] = red;
+    arrayPtr[2] = blue; 
+  }
 }
 
 /************************************************************************/
@@ -1172,5 +1228,5 @@ uint8_t* PICxel::getColorArray(void){
 }
 
 uint8_t PICxel::getBrightness(void){
-  return brightness;
+  return globalBrightness;
 }
