@@ -58,16 +58,17 @@ PICxel::PICxel(
 {
   if (memoryMode == alloc)
   {
-    // User is asking us to allocate the pixel color arrays using malloc
+    // User is asking us to allocate the pixel color arrays using calloc
     if (colorMode == GRB)
     {
       colorArraySizeBytes =  3 * pixelCount;
       colorArray = (uint8_t *)calloc(colorArraySizeBytes, sizeof(uint8_t));
+
       // Only allocate extra two arrays if user wants per-pixel brightness
       if (brightnessMode == perPixel)
       {
         originalColorArray = (uint8_t *)calloc(colorArraySizeBytes, sizeof(uint8_t));
-        pixelBrightnessArray = (uint8_t *)malloc(pixelCount);
+        pixelBrightnessArray = (uint8_t *)calloc(pixelCount, sizeof(uint8_t));
       }
     }
     else  // colorMode == HSV
@@ -101,7 +102,19 @@ PICxel::PICxel(
   }
 
   // Handle the case where we've run out of memory
-  if (colorArray == NULL || originalColorArray == NULL || pixelBrightnessArray == NULL)
+  if (
+    colorArray == NULL 
+    || 
+    (
+      brightnessMode == perPixel
+      && 
+      (
+        originalColorArray == NULL 
+        || 
+        pixelBrightnessArray == NULL
+      )
+    )
+  )
   {
     // By setting the number of LEDs to zero, we prevent any of the rest of the code from
     // really doing much, and thus alerting the user to something wrong
@@ -133,7 +146,10 @@ PICxel::PICxel(
     // No need to init colorArray or originalColorArray as calloc sets them to zero
     
     // Init individual pixel brightnesses to maximum
-    memset((void *)pixelBrightnessArray, 0xFF, pixelCount);
+    if (brightnessMode == perPixel)
+    {
+      memset((void *)pixelBrightnessArray, 0xFF, pixelCount);
+    }
   }
 }
 
@@ -171,10 +187,22 @@ void PICxel::begin()
     // assign analog inputs as needed
     pinMode(pin, OUTPUT);
     
-    //clear the pin
+    // clear the pin
     *portClr = pinMask;
   }
 }
+
+/* REMOVE
+pinMode(3, OUTPUT);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+*/
 
 /************************************************************************/
 /*  Clears the entire color array in either GRB or HSV mode             */
