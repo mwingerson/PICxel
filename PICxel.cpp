@@ -99,6 +99,15 @@ PICxel::PICxel(
     {
       pixelBrightnessArray = pixelBrightnessArrayPtr;
     }
+
+    if (colorMode == GRB)
+    {
+      colorArraySizeBytes =  3 * pixelCount;
+    }
+    else  // colorMode == HSV
+    {
+      colorArraySizeBytes = 4 * pixelCount;
+    }
   }
 
   // Handle the case where we've run out of memory
@@ -181,6 +190,15 @@ PICxel::~PICxel()
 /************************************************************************/
 void PICxel::begin()
 {
+pinMode(3, OUTPUT);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
   if (colorArraySizeBytes)
   {
     // let chipKIT library handle the tri-state buffer and 
@@ -223,10 +241,10 @@ void PICxel::clear()
       }
       if (pixelBrightnessArray != NULL)
       {
-        memset((void *)pixelBrightnessArray, 0xFF, colorArraySizeBytes);
+        memset((void *)pixelBrightnessArray, 0xFF, numberOfLEDs);
       }
     }
-    else
+    else // colorMode == HSV
     {
       /// TODO: Handle the HSV case like we do the RGB case
       if (colorArray != NULL)
@@ -465,19 +483,46 @@ void PICxel::setPixelBrightness(uint16_t pixelNumber, uint8_t pixelBrightness)
 }
 
 /************************************************************************/
+/*  When in per-pixel brightness mode, this function will return the    */
+/*  brightness of a single pixel. This brightness value will be the     */
+/*  per-pixel brightness set with the setPixelBrightness() function.    */
+/************************************************************************/
+uint8_t PICxel::getPixelBrightness(uint16_t pixelNumber)
+{
+  if ((colorArraySizeBytes) && (pixelNumber < numberOfLEDs) && (brightnessMode == perPixel))
+  {
+    // Get this pixel's brightness
+    return(pixelBrightnessArray[pixelNumber]);
+  }
+  return 0;
+}
+
+/************************************************************************/
 /*  Refreshed the LED strip with either GRBrefreshLEDs() or             */
 /*  HSVrefreshLEDs() dependent on which color mode to use               */
 /************************************************************************/
 void PICxel::refreshLEDs(void)
 {
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
   if (colorMode == GRB)
   {
     GRBrefreshLEDs();
   }
-  else
+  else // colorMode == HSV
   {
     HSVrefreshLEDs();
   }
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
 }
 
 /************************************************************************/
@@ -498,13 +543,21 @@ void PICxel::GRBrefreshLEDs(void)
   uint8_t* colorArrayPtr = colorArray;
   uint8_t bitSelect;
     
+pinMode(3, OUTPUT);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+
   /* Disable interrupts, but save current bits so we can restore them later */
   interruptBits = disableInterrupts();
     
   for (int j = 0; j < colorArraySizeBytes; j++)
   {
     bitSelect = 0x80;
-        
+
+digitalWrite(3, HIGH);
+    
     while(bitSelect)
     {
       if (*colorArrayPtr & bitSelect)
@@ -524,10 +577,15 @@ void PICxel::GRBrefreshLEDs(void)
       bitSelect = (bitSelect >> 1);
     }
     colorArrayPtr++;
+digitalWrite(3, LOW);
   }
   
   /* Restore the interrupts now */
   restoreInterrupts(interruptBits);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
+digitalWrite(3, HIGH);
+digitalWrite(3, LOW);
 }
 
 /************************************************************************/

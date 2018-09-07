@@ -94,6 +94,7 @@ public:
   void GRBsetLEDColor(uint16_t pixelNumber, uint32_t color, uint8_t pixelBrightness = 0xFF);
   
   void setPixelBrightness(uint16_t pixelNumber, uint8_t pixelBrightness);
+  uint8_t getPixelBrightness(uint16_t pixelNumber);
   
   void HSVsetLEDColor(uint16_t pixelNumber, uint16_t hue, uint8_t sat, uint8_t val);
   void HSVsetLEDColor(uint16_t pixelNumber, uint32_t color);
