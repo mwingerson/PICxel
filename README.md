@@ -40,5 +40,14 @@ currently all of them).
 (09/05/2018)
 Version 2 changes by Brian Schmalz : brian@schmalzhaus
 
-Version 2 brings per-pixel brightness ability as well as a simpler
+Version 2 brings per-pixel brightness ability to RGB mode as well as a simpler
 constructor with default parameters. More examples added as well.
+
+NOTE: HSV mode does not need per-pixel brightness, since you get that with the
+'V' parameter (value) in HSV. 
+
+NOTE2: HSV mode does NOT work properly with chipKIT boards that are not
+running at 80MHz. (So, like, Fubarino Mini, DP32, WiFire, etc.) This will
+be addressed in a future version of the library. HSV mode does work just 
+fine for all 80MHz chipKIT boards (I.e. Fubarino SD, uC32, UNO32, MAX32,
+etc.)

@@ -11,10 +11,7 @@
 /*  This library is protected under the GNU GPL v3.0 license            */
 /*  http://www.gnu.org/licenses/                                        */
 /*                                                                      */
-/* 06/05/2017 Brian Schmalz Added support for all chipKIT boards, as    */
-/*                          well as simplifying the main GRBrefreshLEDs()*/
-/*                          function.                                   */
-/*                          Tested on 40, 48, 80 and 200 MHz boards     */
+/*  See PICexl.c for change log                                         */
 /************************************************************************/
 #ifndef PICxel_H
 #define PICxel_H

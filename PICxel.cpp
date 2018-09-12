@@ -12,16 +12,18 @@
 /*  http://www.gnu.org/licenses/                                        */
 /*                                                                      */
 /* 06/05/2017 Brian Schmalz Added support for all chipKIT boards, as    */
-/*                          well as simplifying the main GRBrefreshLEDs()*/
-/*                          function.                                   */
+/*                          well as simplifying the main                */
+/*                          GRBrefreshLEDs() function.                  */
 /*                          Tested on 40, 48, 80 and 200 MHz boards     */
 /* 07/28/2017 Brian Schmalz Reformatted to ease readability             */
 /*                          Added more comments, function header blocks */
-/*                          Added support for per-pixel brightness values */
-/*                            by adding per-pixel brightness array, new */
-/*                            functions to support setting it, and new  */
-/*                            array for storing original color values   */
+/*                          Added support for per-pixel brightness      */
+/*                            values by adding per-pixel brightness     */
+/*                            array, new functions to support setting   */
+/*                            it, and new array for storing original    */
+/*                            color values                              */
 /*                                                                      */
+/* TODO: Update HSV delays for F_CPU other than 80MHz                   */
 /************************************************************************/
 
 #include "PICxel.h"
@@ -190,15 +192,6 @@ PICxel::~PICxel()
 /************************************************************************/
 void PICxel::begin()
 {
-pinMode(3, OUTPUT);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
   if (colorArraySizeBytes)
   {
     // let chipKIT library handle the tri-state buffer and 
@@ -209,18 +202,6 @@ digitalWrite(3, LOW);
     *portClr = pinMask;
   }
 }
-
-/* REMOVE
-pinMode(3, OUTPUT);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-*/
 
 /************************************************************************/
 /*  Clears the entire color array in either GRB or HSV mode             */
@@ -503,12 +484,6 @@ uint8_t PICxel::getPixelBrightness(uint16_t pixelNumber)
 /************************************************************************/
 void PICxel::refreshLEDs(void)
 {
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
   if (colorMode == GRB)
   {
     GRBrefreshLEDs();
@@ -517,12 +492,6 @@ digitalWrite(3, LOW);
   {
     HSVrefreshLEDs();
   }
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
 }
 
 /************************************************************************/
@@ -542,12 +511,6 @@ void PICxel::GRBrefreshLEDs(void)
   uint32_t interruptBits;
   uint8_t* colorArrayPtr = colorArray;
   uint8_t bitSelect;
-    
-pinMode(3, OUTPUT);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
 
   /* Disable interrupts, but save current bits so we can restore them later */
   interruptBits = disableInterrupts();
@@ -556,8 +519,6 @@ digitalWrite(3, LOW);
   {
     bitSelect = 0x80;
 
-digitalWrite(3, HIGH);
-    
     while(bitSelect)
     {
       if (*colorArrayPtr & bitSelect)
@@ -577,15 +538,10 @@ digitalWrite(3, HIGH);
       bitSelect = (bitSelect >> 1);
     }
     colorArrayPtr++;
-digitalWrite(3, LOW);
   }
   
   /* Restore the interrupts now */
   restoreInterrupts(interruptBits);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
-digitalWrite(3, HIGH);
-digitalWrite(3, LOW);
 }
 
 /************************************************************************/
