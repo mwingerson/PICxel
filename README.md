@@ -1,4 +1,4 @@
-PIC32 Neopixel Library - PICxel                            
+PIC32 Neopixel Library - PICxel
 
 A simple to use library for addressable LEDs like the WS2812 for the 
 PIC32 line of microcontrollers.  Originally this library was a basic 
@@ -21,17 +21,19 @@ excellent work including some functions that are verbatim. I tried
 to preserve the standard functionality of the original Neopixel
 Library. My Dad always told me "If it isn't broken then why are 
 you trying to fix it?" He never actually said that but definitely 
-should have.  
+should have.
 
-The library was originally written by Marshall Wingerson. 
+The library was originally written by Marshall Wingerson.
 
 Big thanks to Adafruit for being awesome!
 
 tested supported boards:
-  - COMING SOON! Red Lemur
-  - Digilent UNO32
-  - Digilent UC32
+  - chipKIT UNO32
+  - chipKIT UC32
   - chipKIT Fubarino SD
+  - chipKIT Fubarino Mini
+  - chipKIT WiFire
+  - RGB Station
 
 The PICxel library should work with any Arduino-compatible PIC32 
 based board running at 40MHz, 48MHz, 80MHz or 200MHz (which is 
@@ -41,7 +43,8 @@ currently all of them).
 Version 2 changes by Brian Schmalz : brian@schmalzhaus
 
 Version 2 brings per-pixel brightness ability to RGB mode as well as a simpler
-constructor with default parameters. More examples added as well.
+constructor with default parameters. All previous sketches will still work with
+no modifications. More examples added as well.
 
 NOTE: HSV mode does not need per-pixel brightness, since you get that with the
 'V' parameter (value) in HSV. 
