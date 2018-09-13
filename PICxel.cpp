@@ -12,138 +12,344 @@
 /*  http://www.gnu.org/licenses/                                        */
 /*                                                                      */
 /* 06/05/2017 Brian Schmalz Added support for all chipKIT boards, as    */
-/*                          well as simplifying the main GRBrefreshLEDs()*/
-/*                          function.                                   */
+/*                          well as simplifying the main                */
+/*                          GRBrefreshLEDs() function.                  */
 /*                          Tested on 40, 48, 80 and 200 MHz boards     */
+/* 07/28/2017 Brian Schmalz Reformatted to ease readability             */
+/*                          Added more comments, function header blocks */
+/*                          Added support for per-pixel brightness      */
+/*                            values by adding per-pixel brightness     */
+/*                            array, new functions to support setting   */
+/*                            it, and new array for storing original    */
+/*                            color values                              */
+/*                                                                      */
+/* TODO: Update HSV delays for F_CPU other than 80MHz                   */
 /************************************************************************/
 
 #include "PICxel.h"
 
 /************************************************************************/
-/*  Construction for the PICxel class                                   */
+/*  Constructor for the PICxel class                                    */
+/*  Note the optional parameters in the PICxel.h file for this function */
+/*  If you only include the minimum (pixelCount and pin) then you'll    */
+/*  get a colorMode of GRB, a memoryMode of alloc and a brightnessMode  */
+/*  of globalOnly. You can override any of those parameters if you want */
 /************************************************************************/
-PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode) : numberOfLEDs(num), 
-pin(pin), colorArray(NULL), portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
-portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
-pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
-  if(colorMode == GRB){
-    numberOfBytes = 3*num;
-    //uint8_t colorArray[3*num];    
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+PICxel::PICxel(
+  uint16_t pixelCount,
+  uint8_t pixelPin,
+  color_mode_t newColorMode,
+  memory_mode_t newMemoryMode,
+  brightness_mode_t newBrightnessMode,
+  uint8_t* colorArrayPtr,
+  uint8_t* originalColorArrayPtr,
+  uint8_t* pixelBrightnessArrayPtr
+) :
+  brightnessMode(newBrightnessMode),
+  colorMode(newColorMode),
+  memoryMode(newMemoryMode),
+  colorArraySizeBytes(0),
+  globalBrightness(0xFF),
+  colorArray(NULL),
+  originalColorArray(NULL),
+  pixelBrightnessArray(NULL),
+  pin(pixelPin),
+  portSet(portOutputRegister(digitalPinToPort(pixelPin)) + 2),
+  portClr(portOutputRegister(digitalPinToPort(pixelPin)) + 1),
+  pinMask(digitalPinToBitMask(pixelPin))
+{
+  if (memoryMode == alloc)
+  {
+    // User is asking us to allocate the pixel color arrays using calloc
+    if (colorMode == GRB)
+    {
+      colorArraySizeBytes =  3 * pixelCount;
+      colorArray = (uint8_t *)calloc(colorArraySizeBytes, sizeof(uint8_t));
+
+      // Only allocate extra two arrays if user wants per-pixel brightness
+      if (brightnessMode == perPixel)
+      {
+        originalColorArray = (uint8_t *)calloc(colorArraySizeBytes, sizeof(uint8_t));
+        pixelBrightnessArray = (uint8_t *)calloc(pixelCount, sizeof(uint8_t));
+      }
+    }
+    else  // colorMode == HSV
+    {
+      colorArraySizeBytes = 4 * pixelCount;
+      colorArray = (uint8_t *)calloc(colorArraySizeBytes, sizeof(uint8_t));
+      // Only allocate extra two arrays if user wants per-pixel brightness
+      if (brightnessMode == perPixel)
+      {
+        // TODO: Handle the HSV version of allocating originalColorArray
+        // and pixelBrightnessArray
+      }
+    }
   }
-  else{
-    numberOfBytes = 4*num;
-    //uint8_t colorArray[4*num]; 
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  } 
+  else // memoryMode == noalloc
+  {
+    // User is passing in pre-allocated arrays for pixel color arrays,
+    // If non-NULL, copy over into our member array pointers.
+    if (colorArrayPtr != NULL)
+    {
+      colorArray = colorArrayPtr;
+    }
+    if (originalColorArrayPtr != NULL)
+    {
+      originalColorArray = originalColorArrayPtr;
+    }
+    if (pixelBrightnessArrayPtr != NULL)
+    {
+      pixelBrightnessArray = pixelBrightnessArrayPtr;
+    }
 
-  for(int i=0;i<numberOfBytes; i++)
-    colorArray[i] = 0;
-}
-
-PICxel::PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode, memory_mode_t memory_mode) : 
-  numberOfLEDs(num), pin(pin), colorArray(NULL), 
-  portSet(portOutputRegister(digitalPinToPort(pin)) + 2), 
-  portClr(portOutputRegister(digitalPinToPort(pin)) + 1), 
-  pinMask(digitalPinToBitMask(pin)), brightness(255), colorMode(colorMode){
-  
-  if(colorMode == GRB && memory_mode == alloc){
-    numberOfBytes = 3*num;    
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
+    if (colorMode == GRB)
+    {
+      colorArraySizeBytes =  3 * pixelCount;
+    }
+    else  // colorMode == HSV
+    {
+      colorArraySizeBytes = 4 * pixelCount;
+    }
   }
-  else if(colorMode == HSV && memory_mode == alloc){
-    numberOfBytes = 4*num;
-    colorArray = (uint8_t*)calloc(numberOfBytes, sizeof(uint8_t));
-  } 
-  else if(colorMode == GRB && memory_mode == noalloc){
-    numberOfBytes = 3*num;
-  } 
-  else{ //(colorMode == GRB && memory_mode == noalloc)
-    numberOfBytes = 4*num;
-  } 
+
+  // Handle the case where we've run out of memory
+  if (
+    colorArray == NULL 
+    || 
+    (
+      brightnessMode == perPixel
+      && 
+      (
+        originalColorArray == NULL 
+        || 
+        pixelBrightnessArray == NULL
+      )
+    )
+  )
+  {
+    // By setting the number of LEDs to zero, we prevent any of the rest of the code from
+    // really doing much, and thus alerting the user to something wrong
+    numberOfLEDs = 0;
+    colorArraySizeBytes = 0;
+
+    // Deallocate any memory that did get allocated (only by us - lave user allocation alone)
+    if (memoryMode == alloc)
+    {
+      if (colorArray != NULL)
+      {
+        free(colorArray);
+      }
+      if (originalColorArray != NULL)
+      {
+        free(originalColorArray);
+      }
+      if (pixelBrightnessArray != NULL)
+      {
+        free(pixelBrightnessArray);
+      }
+    }
+  }
+  else
+  {
+    // Indicate successful memory allocation by setting the global number of LEDs properly
+    numberOfLEDs = pixelCount;
+    
+    // No need to init colorArray or originalColorArray as calloc sets them to zero
+    
+    // Init individual pixel brightnesses to maximum
+    if (brightnessMode == perPixel)
+    {
+      memset((void *)pixelBrightnessArray, 0xFF, pixelCount);
+    }
+  }
 }
-
-
-void PICxel::setArrayPointer(uint8_t* colorPtr){
-  colorArray = colorPtr;
-}
-
-
-
-
-
-
 
 /************************************************************************/
 /*  Destructor for the PICxel class                                     */
 /************************************************************************/
-PICxel::~PICxel(){
+PICxel::~PICxel()
+{
+  if (memoryMode == alloc)
+  {
+    // Deallocate any memory that did got allocated
+    if (colorArray != NULL)
+    {
+      free(colorArray);
+    }
+    if (originalColorArray != NULL)
+    {
+      free(originalColorArray);
+    }
+    if (pixelBrightnessArray != NULL)
+    {
+      free(pixelBrightnessArray);
+    }
+  }
 }
 
 /************************************************************************/
 /*  Sets the pinMode for selected pin                                   */
 /************************************************************************/
-void PICxel::begin(){
-  //let MPIDE handle the tri-state buffer and 
-  //assign analog inputs as needed
-  pinMode(pin, OUTPUT);
-  
-  //clear the pin
-  *portClr = pinMask;
-}
-
-/************************************************************************/
-/*  Clears the color array in either GRB or HSV mode                    */
-/************************************************************************/
-void PICxel::clear(){
-  uint8_t* arrayPtr = colorArray;
-  if(colorMode == GRB)
-    for(int i=0; i < numberOfLEDs*3; i++)
-      arrayPtr[i] = 0;
-  else
-    for(int i = 0; i < numberOfLEDs*4; i++)
-      arrayPtr[i] = 0;
-}
-
-/************************************************************************/
-/*  Clears the LED in the colorArray                                    */
-/************************************************************************/
-void PICxel::clear(uint8_t num){
-  if(colorMode == GRB){
-    colorArray[(num*3)+0] = 0;
-    colorArray[(num*3)+1] = 0;
-    colorArray[(num*3)+2] = 0;
-  }
-  else{
-    colorArray[(num*4)+0] = 0;
-    colorArray[(num*4)+1] = 0;
-    colorArray[(num*4)+2] = 0;
-    colorArray[(num*4)+3] = 0;
+void PICxel::begin()
+{
+  if (colorArraySizeBytes)
+  {
+    // let chipKIT library handle the tri-state buffer and 
+    // assign analog inputs as needed
+    pinMode(pin, OUTPUT);
+    
+    // clear the pin
+    *portClr = pinMask;
   }
 }
 
 /************************************************************************/
-/*  sets the class brightness                                           */
+/*  Clears the entire color array in either GRB or HSV mode             */
 /************************************************************************/
-void PICxel::setBrightness(uint8_t b){
-  brightness = b;
+void PICxel::clear()
+{
+  if (colorArraySizeBytes)
+  {
+    if (colorMode == GRB)
+    {
+      if (colorArray != NULL)
+      {
+        memset((void *)colorArray, 0x00, colorArraySizeBytes);
+      }
+      if (originalColorArray != NULL)
+      {
+        memset((void *)originalColorArray, 0x00, colorArraySizeBytes);
+      }
+      if (pixelBrightnessArray != NULL)
+      {
+        memset((void *)pixelBrightnessArray, 0xFF, numberOfLEDs);
+      }
+    }
+    else // colorMode == HSV
+    {
+      /// TODO: Handle the HSV case like we do the RGB case
+      if (colorArray != NULL)
+      {
+        memset((void *)colorArray, 0x00, colorArraySizeBytes);
+      }
+    }
+  }
+}
+
+/************************************************************************/
+/*  Clears just one LED                                                 */
+/************************************************************************/
+void PICxel::clear(uint8_t pixelNumber)
+{
+  if (colorArraySizeBytes)
+  {
+    if (colorMode == GRB)
+    {
+      if (colorArray != NULL)
+      {
+        colorArray[(pixelNumber * 3) + 0] = 0;
+        colorArray[(pixelNumber * 3) + 1] = 0;
+        colorArray[(pixelNumber * 3) + 2] = 0;
+      }
+      if (originalColorArray != NULL)
+      {
+        originalColorArray[(pixelNumber * 3) + 0] = 0;
+        originalColorArray[(pixelNumber * 3) + 1] = 0;
+        originalColorArray[(pixelNumber * 3) + 2] = 0;
+      }
+      if (pixelBrightnessArray != NULL)
+      {
+        pixelBrightnessArray[pixelNumber] = 0xFF;
+      }
+    }
+    else
+    {
+      /// TODO: Handle HSV originalColorArray and pixelBrightnessArray
+      if (colorArray != NULL)
+      {
+        colorArray[(pixelNumber * 4) + 0] = 0;
+        colorArray[(pixelNumber * 4) + 1] = 0;
+        colorArray[(pixelNumber * 4) + 2] = 0;
+        colorArray[(pixelNumber * 4) + 3] = 0;
+      }
+    }
+  }
+}
+
+/************************************************************************/
+/*  sets the class global brightness                                    */
+/************************************************************************/
+void PICxel::setBrightness(uint8_t newBrightness)
+{
+  globalBrightness = newBrightness;
+}
+
+/************************************************************************/
+/*  Take the original color values for a given pixel, and create the    */
+/*  actual color values that get sent out to LEDs by adjusting the      */
+/*  originals for global brightness and per-pixel brightness.           */
+/*  Note: This routine only needs to be called if per-pixel brightness  */
+/*  is being used, and normally is only called from within this library */
+/************************************************************************/
+void PICxel::updatePixelColorValues(uint16_t number)
+{
+  if (colorArraySizeBytes && brightnessMode == perPixel)
+  {
+    uint8_t *originalArrayPtr = &originalColorArray[number * 3];
+    uint8_t *arrayPtr = &colorArray[number * 3];
+    
+    // green
+    arrayPtr[0] = ((originalArrayPtr[0] * pixelBrightnessArray[number] * globalBrightness) >> 16);
+    // red
+    arrayPtr[1] = ((originalArrayPtr[1] * pixelBrightnessArray[number] * globalBrightness) >> 16);
+    // blue
+    arrayPtr[2] = ((originalArrayPtr[2] * pixelBrightnessArray[number] * globalBrightness) >> 16);
+  }
 }
 
 /************************************************************************/
 /*  Modifies the color matrix with the colors presented in 8-bit values */
 /*  for green, red and blue.  The values are then scaled by the         */
-/*  brightness value and placed into the location of number             */
+/*  globalBrightness value and placed into the location of number       */
+/*  This function leaves the global and per-pixel brightness values     */
+/*  alone.                                                              */
 /************************************************************************/
-void PICxel::GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t blue){
-  if(number < numberOfLEDs){
-    red = ((red*brightness) >> 8);
-    green = ((green*brightness) >> 8);
-    blue = ((blue*brightness) >> 8);
-    
-    uint8_t *arrayPtr = &colorArray[number*3];
-    arrayPtr[0] = green;
-    arrayPtr[1] = red;
-    arrayPtr[2] = blue;
+void PICxel::GRBsetLEDColor(
+    uint16_t pixelNumber,
+    uint8_t green,
+    uint8_t red,
+    uint8_t blue,
+    uint8_t pixelBrightness)
+{
+  if ((colorArraySizeBytes) && (pixelNumber < numberOfLEDs))
+  {
+    if (brightnessMode == perPixel)
+    {
+      // When we are in perPixel brightness mode, we store the original RGB 
+      // values in the Original array, and then update the colorArray values 
+      // from that based on per pixel brightness
+      uint8_t *originalArrayPtr = &originalColorArray[pixelNumber * 3];
+
+      originalArrayPtr[0] = green;
+      originalArrayPtr[1] = red;
+      originalArrayPtr[2] = blue;
+
+      // Update the pixel's brightness value
+      pixelBrightnessArray[pixelNumber] = pixelBrightness;
+      
+      /* Now compute new actual color values */
+      updatePixelColorValues(pixelNumber);
+    }
+    else  // brightnessMode == globalOnly
+    {
+      // If normal global-only brightness is used, then dump the RGB values
+      // directly into the colorArray after modifying by global brightness
+      uint8_t *arrayPtr = &colorArray[pixelNumber * 3];
+
+      arrayPtr[0] = (green * globalBrightness) >> 8;
+      arrayPtr[1] = (red   * globalBrightness) >> 8;
+      arrayPtr[2] = (blue  * globalBrightness) >> 8;
+    }
   }
 }
 
@@ -154,24 +360,41 @@ void PICxel::GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t
 /*  bits[31 - 24][23 - 16][15 - 8][7 - 0]                               */
 /*      ( blank )(  red  )(green )(blue )                               */
 /*                                                                      */
-/*  Each color is scaled by the brightness value and stored in the      */
+/*  Each color is scaled by the globalBrightness value and stored in the */
 /*  color array.                                                        */
 /************************************************************************/
-void PICxel::GRBsetLEDColor(uint16_t number, uint32_t color){
-  if(number < numberOfLEDs){
-    uint32_t red   = (uint8_t)(color >> 8);
-    uint32_t green = (uint8_t)(color >> 16);
-    uint32_t blue  = (uint8_t)(color);
-    
-    red   = (red   * brightness) >> 8;
-    green = (green * brightness) >> 8;
-    blue  = (blue  * brightness) >> 8;
-    
-    uint8_t *arrayPtr = &colorArray[number*3];
-    arrayPtr[0] = green;
-    arrayPtr[1] = red;
-    arrayPtr[2] = blue; 
-  } 
+void PICxel::GRBsetLEDColor(uint16_t pixelNumber, uint32_t color, uint8_t pixelBrightness)
+{
+  if ((colorArraySizeBytes) && (pixelNumber < numberOfLEDs))
+  {
+    if (brightnessMode == perPixel)
+    {
+      // When we are in perPixel brightness mode, we store the original RGB 
+      // values in the Original array, and then update the colorArray values 
+      // from that based on per pixel brightness
+      uint8_t *originalArrayPtr = &originalColorArray[pixelNumber * 3];
+      
+      originalArrayPtr[0] = ((uint8_t)(color >>16));
+      originalArrayPtr[1] = ((uint8_t)(color >> 8));
+      originalArrayPtr[2] = ((uint8_t)(color));
+
+      // Update the pixel's brightness value
+      pixelBrightnessArray[pixelNumber] = pixelBrightness;
+      
+      /* Now compute new actual color values */
+      updatePixelColorValues(pixelNumber);
+    }
+    else  // brightnessMode == globalOnly
+    {
+      // If normal global-only brightness is used, then dump the RGB values
+      // directly into the colorArray
+      uint8_t *arrayPtr = &colorArray[pixelNumber * 3];
+      
+      arrayPtr[0] = ((uint8_t)(color >>16) * globalBrightness) >> 8;
+      arrayPtr[1] = ((uint8_t)(color >> 8) * globalBrightness) >> 8;
+      arrayPtr[2] = ((uint8_t)(color)      * globalBrightness) >> 8; 
+    }
+  }
 }
 
 /************************************************************************/
@@ -182,9 +405,15 @@ void PICxel::GRBsetLEDColor(uint16_t number, uint32_t color){
 /*  val are 8-bit values that control saturation and value.  If         */
 /*  saturation is 0 then the LED will be off.                           */
 /************************************************************************/
-void PICxel::HSVsetLEDColor(uint16_t number, uint16_t hue, uint8_t sat, uint8_t val){
-  if(number < numberOfLEDs){
-    uint8_t *arrayPtr = &colorArray[number*4];
+void PICxel::HSVsetLEDColor(
+    uint16_t pixelNumber,
+    uint16_t hue,
+    uint8_t sat,
+    uint8_t val)
+{
+  if (pixelNumber < numberOfLEDs)
+  {
+    uint8_t *arrayPtr = &colorArray[pixelNumber * 4];
     arrayPtr[0] = hue;
     arrayPtr[1] = hue >> 8;
     arrayPtr[2] = sat;
@@ -204,9 +433,11 @@ void PICxel::HSVsetLEDColor(uint16_t number, uint16_t hue, uint8_t sat, uint8_t 
 /*  val are 8-bit values that control saturation and value.  If         */
 /*  saturation is 0 then the LED will be off.                           */
 /************************************************************************/
-void PICxel::HSVsetLEDColor(uint16_t number, uint32_t color){
-  if(number < numberOfLEDs){
-    uint8_t *arrayPtr = &colorArray[number*4];
+void PICxel::HSVsetLEDColor(uint16_t pixelNumber, uint32_t color)
+{
+  if (pixelNumber < numberOfLEDs)
+  {
+    uint8_t *arrayPtr = &colorArray[pixelNumber * 4];
     arrayPtr[0] = color;
     arrayPtr[1] = color >> 8;
     arrayPtr[2] = color >> 16;
@@ -214,15 +445,53 @@ void PICxel::HSVsetLEDColor(uint16_t number, uint32_t color){
   }
 }
 
+
+/************************************************************************/
+/*  When in per-pixel brightness mode, this function will update a      */
+/*  single pixel's brightness, and then re-compute it's RGB values so   */
+/*  that the new brightness immediately takes effect at the next refresh*/
+/************************************************************************/
+void PICxel::setPixelBrightness(uint16_t pixelNumber, uint8_t pixelBrightness)
+{
+  if ((colorArraySizeBytes) && (pixelNumber < numberOfLEDs) && (brightnessMode == perPixel))
+  {
+    // Update the pixel's brightness value
+    pixelBrightnessArray[pixelNumber] = pixelBrightness;
+    
+    /* Now compute new actual color values */
+    updatePixelColorValues(pixelNumber);
+  }
+}
+
+/************************************************************************/
+/*  When in per-pixel brightness mode, this function will return the    */
+/*  brightness of a single pixel. This brightness value will be the     */
+/*  per-pixel brightness set with the setPixelBrightness() function.    */
+/************************************************************************/
+uint8_t PICxel::getPixelBrightness(uint16_t pixelNumber)
+{
+  if ((colorArraySizeBytes) && (pixelNumber < numberOfLEDs) && (brightnessMode == perPixel))
+  {
+    // Get this pixel's brightness
+    return(pixelBrightnessArray[pixelNumber]);
+  }
+  return 0;
+}
+
 /************************************************************************/
 /*  Refreshed the LED strip with either GRBrefreshLEDs() or             */
 /*  HSVrefreshLEDs() dependent on which color mode to use               */
 /************************************************************************/
-void PICxel::refreshLEDs(void){
-  if(colorMode == GRB)
+void PICxel::refreshLEDs(void)
+{
+  if (colorMode == GRB)
+  {
     GRBrefreshLEDs();
-  else
+  }
+  else // colorMode == HSV
+  {
     HSVrefreshLEDs();
+  }
 }
 
 /************************************************************************/
@@ -237,21 +506,22 @@ void PICxel::refreshLEDs(void){
 /*  preprocessor defined macros will allow for easier porting to other  */
 /*  ChipKIT boards.                                                     */
 /************************************************************************/
-void PICxel::GRBrefreshLEDs(void){
+void PICxel::GRBrefreshLEDs(void)
+{
   uint32_t interruptBits;
   uint8_t* colorArrayPtr = colorArray;
   uint8_t bitSelect;
-    
+
   /* Disable interrupts, but save current bits so we can restore them later */
   interruptBits = disableInterrupts();
     
-  for(int j = 0; j < numberOfBytes; j++)
+  for (int j = 0; j < colorArraySizeBytes; j++)
   {
     bitSelect = 0x80;
-        
+
     while(bitSelect)
     {
-      if(*colorArrayPtr & bitSelect)
+      if (*colorArrayPtr & bitSelect)
       {
         *portSet = pinMask;
         GRB_delay_T1H();
@@ -295,8 +565,8 @@ void PICxel::GRBrefreshLEDs(void){
 /*  preprocessor defined macros will allow for easier porting to other  */
 /*  ChipKIT boards.                                                     */
 /************************************************************************/
-void PICxel::HSVrefreshLEDs(void){
-  
+void PICxel::HSVrefreshLEDs(void)
+{ 
   //do not allow bitstream to be interrupted
   noInterrupts();
 
@@ -1007,7 +1277,8 @@ HSV_universal_delay_1 //preprocessor macro
 /*  bits[31 - 24][23 - 16][15 - 8][7 - 0]                               */
 /*      ( blank )(  red  )(green )(blue )                               */
 /************************************************************************/
-uint32_t PICxel::HSVToColor(unsigned int HSV){
+uint32_t PICxel::HSVToColor(unsigned int HSV)
+{
   //hue 0-360 -> 0-1535
   //saturation 0-255
   //value 0-255
@@ -1154,23 +1425,29 @@ uint32_t PICxel::HSVToColor(unsigned int HSV){
     : //clobber-list
   );
   
-  return ((red&0xFF)<<16 | (green&0xFF)<<8 | (blue&0xFF));
+  return ((red & 0xFF) << 16 | (green & 0xFF) << 8 | (blue & 0xFF));
 }
 
 /************************************************************************/
 /*  Returns the number of LEDs declared for the class                   */
 /************************************************************************/
-uint16_t PICxel::getNumberOfLEDs(){
+uint16_t PICxel::getNumberOfLEDs()
+{
   return numberOfLEDs;
 }
 
 /************************************************************************/
 /*  Returns the address of the beginning of the colorArray              */
 /************************************************************************/
-uint8_t* PICxel::getColorArray(void){
+uint8_t* PICxel::getColorArray(void)
+{
   return colorArray;
 }
 
-uint8_t PICxel::getBrightness(void){
-  return brightness;
+/************************************************************************/
+/*  Returns the global brightness value                                 */
+/************************************************************************/
+uint8_t PICxel::getBrightness(void)
+{
+  return globalBrightness;
 }

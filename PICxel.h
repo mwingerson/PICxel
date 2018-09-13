@@ -11,10 +11,7 @@
 /*  This library is protected under the GNU GPL v3.0 license            */
 /*  http://www.gnu.org/licenses/                                        */
 /*                                                                      */
-/* 06/05/2017 Brian Schmalz Added support for all chipKIT boards, as    */
-/*                          well as simplifying the main GRBrefreshLEDs()*/
-/*                          function.                                   */
-/*                          Tested on 40, 48, 80 and 200 MHz boards     */
+/*  See PICexl.c for change log                                         */
 /************************************************************************/
 #ifndef PICxel_H
 #define PICxel_H
@@ -24,65 +21,100 @@
 
 #define BYTE uint8_t
 
+/* You can choose either GRB (green red blue) or HSV (Hue Saturation Value) */
 enum color_mode_t {GRB, HSV};
+/* You can choose to have the library allocate pixel color memory with malloc ,
+ * (alloc) or allocate them yourself and pass pointers in (noalloc) */
 enum memory_mode_t {alloc, noalloc};
+/* You can choose to use per-pixel brightness or not. Per-pixel brightness will 
+ * require 2.3 times the RAM for the pixel color memory compared to not having
+ * per pixel brightness */
+enum brightness_mode_t {globalOnly, perPixel};
 
-class PICxel{
+class PICxel {
+
+private:
+//colorArray variables
+  /* Binary to keep track of if we're using per-pixel brightness or not */
+  brightness_mode_t brightnessMode;
+  /* Which color mode (GRB vs HSV) for this object */
+  color_mode_t colorMode;
+  /* Which memory allocation mode for this object */
+  memory_mode_t memoryMode;
+  /* Number of LEDs in the strip */
+  uint16_t numberOfLEDs;
+  /* Size of colorArray (the bits to shift out) in bytes */
+  uint16_t colorArraySizeBytes;
+  /* Stores the global brightness value, applied to all pixels globally */
+  uint8_t globalBrightness;
+  /* Stores the R, G and B values that are sent directly out to string of LEDs */
+  uint8_t *colorArray;
+  /* Stores the original R, G and B values before any brightness values are applied */
+  uint8_t *originalColorArray;
+  /* Stores the per-pixel brightness values */
+  uint8_t *pixelBrightnessArray;
+
+  //pin control variables 
+  uint8_t pin;
+  volatile uint32_t *portSet;
+  volatile uint32_t *portClr;
+  uint32_t pinMask;
+
 public:
-//PICxel constructor and destructor
-  PICxel(uint16_t num, uint8_t pin, color_mode_t color_mode);
-  PICxel(uint16_t num, uint8_t pin, color_mode_t colorMode, memory_mode_t memory_mode);
+  //PICxel constructor
+  PICxel(
+    uint16_t pixelCount,
+    uint8_t pin,
+    color_mode_t newColorMode = GRB,
+    memory_mode_t newMemoryMode = alloc,
+    brightness_mode_t newBrightnessMode = globalOnly,
+    uint8_t* colorArrayPtr = NULL,
+    uint8_t* originalColorArrayPtr = NULL,
+    uint8_t* pixelBrightnessArrayPtr = NULL
+  );
 
-
-  void setArrayPointer(uint8_t* colorPtr);
-
+  // PICxel destructor
   ~PICxel(void);
 
-//PICxel control functions
+  //PICxel control functions
   void begin(void);
   void refreshLEDs(void);
   void GRBrefreshLEDs(void);
   void HSVrefreshLEDs(void);
   
-  void GRBsetLEDColor(uint16_t number, uint8_t green, uint8_t red, uint8_t blue);
-  void GRBsetLEDColor(uint16_t number, uint32_t color);
+  void GRBsetLEDColor(
+    uint16_t pixelNumber, 
+    uint8_t green, 
+    uint8_t red, 
+    uint8_t blue, 
+    uint8_t pixelBrightness = 0xFF);
+  void GRBsetLEDColor(uint16_t pixelNumber, uint32_t color, uint8_t pixelBrightness = 0xFF);
   
-  void HSVsetLEDColor(uint16_t number, uint16_t hue, uint8_t sat, uint8_t val);
-  void HSVsetLEDColor(uint16_t number, uint32_t color);
+  void setPixelBrightness(uint16_t pixelNumber, uint8_t pixelBrightness);
+  uint8_t getPixelBrightness(uint16_t pixelNumber);
+  
+  void HSVsetLEDColor(uint16_t pixelNumber, uint16_t hue, uint8_t sat, uint8_t val);
+  void HSVsetLEDColor(uint16_t pixelNumber, uint32_t color);
 
   void clear();
   void clear(uint8_t num);
 
   uint32_t colorToScaledColor(uint32_t color);
   uint32_t HSVToColor(unsigned int HSV);
-
+  void updatePixelColorValues(uint16_t pixelNumber);
+  
 //set class variable functions 
-  void setBrightness(uint8_t b);  
+  /* Sets global brightness, applied to all pixels in the string */
+  void setBrightness(uint8_t b);
 
 //get class variable functions
   uint16_t getNumberOfLEDs(void);
   uint8_t* getColorArray(void);
+  /* Returns the global brightness value */
   uint8_t getBrightness(void);
 
 
-//pin control variables 
-  uint8_t pin;
-  volatile uint32_t *portSet;
-  volatile uint32_t *portClr;
-  uint32_t pinMask;
-
-
-private:
-
-//colorArray variables
-  color_mode_t colorMode;
-  uint16_t numberOfLEDs;
-  uint16_t numberOfBytes;
-  uint8_t brightness; 
-  uint8_t *colorArray;
-
-  
-};
+  };
 #endif // PICxel
 
 /* Hard coded delays

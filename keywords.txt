@@ -1,0 +1,48 @@
+#######################################
+# Syntax Coloring Map For PICxel
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+PICxel	KEYWORD1
+color_mode_t	KEYWORD1
+memory_mode_t	KEYWORD1
+brightness_mode_t	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+refreshLEDs	KEYWORD2
+GRBrefreshLEDs	KEYWORD2
+HSVrefreshLEDs	KEYWORD2
+GRBsetLEDColor	KEYWORD2
+setPixelBrightness	KEYWORD2
+getPixelBrightness	KEYWORD2
+HSVsetLEDColor	KEYWORD2
+clear	KEYWORD2
+colorToScaledColor	KEYWORD2
+HSVToColor	KEYWORD2
+updatePixelColorValues	KEYWORD2
+setBrightness	KEYWORD2
+getNumberOfLEDs	KEYWORD2
+getColorArray	KEYWORD2
+getBrightness	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+GRB	LITERAL1
+HSV	LITERAL1
+alloc	LITERAL1
+noalloc	LITERAL1
+globalOnly	LITERAL1
+perPixel	LITERAL1
